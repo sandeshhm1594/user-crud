@@ -9,7 +9,7 @@ public class UserController {
 	@GetMapping("/home")
 	public String home()
 	{
-		
+		System.out.println("Hello");
 		return "Welcome";
 	}
 }
