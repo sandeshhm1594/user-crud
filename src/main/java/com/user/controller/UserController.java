@@ -9,6 +9,7 @@ public class UserController {
 	@GetMapping("/home")
 	public String home()
 	{
-		return "Home";
+		
+		return "Welcome";
 	}
 }
