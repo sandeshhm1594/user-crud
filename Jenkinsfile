@@ -15,6 +15,13 @@ pipeline {
             }
         }
 
+        stage('Archive JAR') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar',
+                                 fingerprint: true
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 bat 'docker build -t user-crud:%BUILD_NUMBER% .'
@@ -25,6 +32,15 @@ pipeline {
             steps {
                 bat 'docker images user-crud'
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'BUILD AND DOCKER IMAGE CREATION SUCCESSFUL'
+        }
+        failure {
+            echo 'PIPELINE FAILED - CHECK CONSOLE OUTPUT'
         }
     }
 }
