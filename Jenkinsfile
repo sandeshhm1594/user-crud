@@ -6,31 +6,25 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                echo 'Source code checked out successfully'
             }
         }
 
         stage('Build and Test') {
             steps {
-                bat 'call "C:/Tools/apache-maven-3.10.0/bin/mvn.cmd" clean package'
+                bat 'call "C:\\Tools\\apache-maven-3.10.0\\bin\\mvn.cmd" clean package'
             }
         }
 
-        stage('Archive JAR') {
+        stage('Build Docker Image') {
             steps {
-                archiveArtifacts artifacts: 'target/*.jar',
-                                 fingerprint: true
+                bat 'docker build -t user-crud:%BUILD_NUMBER% .'
             }
         }
-    }
 
-    post {
-        success {
-            echo 'BUILD SUCCESSFUL'
-        }
-
-        failure {
-            echo 'BUILD FAILED - Check Console Output'
+        stage('Verify Docker Image') {
+            steps {
+                bat 'docker images user-crud'
+            }
         }
     }
 }
