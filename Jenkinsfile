@@ -40,6 +40,22 @@ pipeline {
                 bat 'docker images user-crud'
             }
         }
+        
+stage('Deploy to Docker') {
+    steps {
+        withCredentials([
+            string(
+                credentialsId: 'mysql-db-password',
+                variable: 'DB_PASSWORD'
+            )
+        ]) {
+            bat '''
+                docker rm -f user-crud-deployed 2>NUL
+                docker run -d --name user-crud-deployed -p 8083:8080 -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/newdocdb?createDatabaseIfNotExist=true" -e "SPRING_DATASOURCE_USERNAME=root" -e "DB_PASSWORD=%DB_PASSWORD%" user-crud:%BUILD_NUMBER%
+            '''
+        }
+    }
+}
     }
 
     post {
