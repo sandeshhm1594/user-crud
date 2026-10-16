@@ -11,7 +11,14 @@ pipeline {
 
         stage('Build and Test') {
             steps {
-                bat 'call "C:\\Tools\\apache-maven-3.10.0\\bin\\mvn.cmd" clean package'
+                withCredentials([
+                    string(
+                        credentialsId: 'mysql-db-password',
+                        variable: 'DB_PASSWORD'
+                    )
+                ]) {
+                    bat 'call "C:\\Tools\\apache-maven-3.10.0\\bin\\mvn.cmd" clean package'
+                }
             }
         }
 
@@ -39,6 +46,7 @@ pipeline {
         success {
             echo 'BUILD AND DOCKER IMAGE CREATION SUCCESSFUL'
         }
+
         failure {
             echo 'PIPELINE FAILED - CHECK CONSOLE OUTPUT'
         }
