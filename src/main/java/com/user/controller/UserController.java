@@ -10,6 +10,6 @@ public class UserController {
 	public String home()
 	{
 		System.out.println("Hello");
-		return "Welcome";
+		return "Welcome to Devops";
 	}
 }
