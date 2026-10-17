@@ -1,2 +1,2 @@
 Testing Jenkins automatic build.
-Adding Automated Build without asking
+Pipeline Adding Automated Build without asking
