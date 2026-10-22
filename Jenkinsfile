@@ -3,6 +3,7 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -17,17 +18,24 @@ pipeline {
                         variable: 'DB_PASSWORD'
                     )
                 ]) {
-                    bat '''
-                        call "C:\\Tools\\apache-maven-3.10.0\\bin\\mvn.cmd" clean package
-                    '''
+                    withEnv([
+                        'SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/newdocdb?createDatabaseIfNotExist=true',
+                        'SPRING_DATASOURCE_USERNAME=root'
+                    ]) {
+                        bat '''
+                            call "C:\\Tools\\apache-maven-3.10.0\\bin\\mvn.cmd" clean package
+                        '''
+                    }
                 }
             }
         }
 
         stage('Archive JAR') {
             steps {
-                archiveArtifacts artifacts: 'target/*.jar',
-                                 fingerprint: true
+                archiveArtifacts(
+                    artifacts: 'target/*.jar',
+                    fingerprint: true
+                )
             }
         }
 
@@ -53,7 +61,16 @@ pipeline {
                 ]) {
                     bat '''
                         docker rm -f user-crud-candidate 2>NUL
-                        docker run -d --name user-crud-candidate -p 8084:8080 -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/newdocdb?createDatabaseIfNotExist=true" -e "SPRING_DATASOURCE_USERNAME=root" -e "DB_PASSWORD=%DB_PASSWORD%" user-crud:%BUILD_NUMBER%
+
+                        docker run -d ^
+                            --name user-crud-candidate ^
+                            -p 8084:8080 ^
+                            -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/newdocdb?createDatabaseIfNotExist=true" ^
+                            -e "SPRING_DATASOURCE_USERNAME=root" ^
+                            -e "DB_PASSWORD=%DB_PASSWORD%" ^
+                            user-crud:%BUILD_NUMBER%
+
+                        if errorlevel 1 exit /b 1
                     '''
                 }
             }
@@ -71,21 +88,45 @@ pipeline {
 
         stage('Promote Candidate') {
             steps {
-                bat '''
-                    docker rm -f user-crud-deployed 2>NUL
-                    docker stop user-crud-candidate
-                    docker rm user-crud-candidate
-                '''
+                script {
+                    try {
+                        bat '''
+                            docker rm -f user-crud-previous 2>NUL
+                            docker stop user-crud-deployed 2>NUL
+                            docker rename user-crud-deployed user-crud-previous
+                        '''
 
-                withCredentials([
-                    string(
-                        credentialsId: 'mysql-db-password',
-                        variable: 'DB_PASSWORD'
-                    )
-                ]) {
-                    bat '''
-                        docker run -d --name user-crud-deployed -p 8083:8080 -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/newdocdb?createDatabaseIfNotExist=true" -e "SPRING_DATASOURCE_USERNAME=root" -e "DB_PASSWORD=%DB_PASSWORD%" user-crud:%BUILD_NUMBER%
-                    '''
+                        bat '''
+                            docker stop user-crud-candidate
+                            docker rm user-crud-candidate
+                        '''
+
+                        withCredentials([
+                            string(
+                                credentialsId: 'mysql-db-password',
+                                variable: 'DB_PASSWORD'
+                            )
+                        ]) {
+                            bat '''
+                                docker run -d ^
+                                    --name user-crud-deployed ^
+                                    -p 8083:8080 ^
+                                    -e "SPRING_DATASOURCE_URL=jdbc:mysql://host.docker.internal:3306/newdocdb?createDatabaseIfNotExist=true" ^
+                                    -e "SPRING_DATASOURCE_USERNAME=root" ^
+                                    -e "DB_PASSWORD=%DB_PASSWORD%" ^
+                                    user-crud:%BUILD_NUMBER%
+
+                                if errorlevel 1 exit /b 1
+                            '''
+                        }
+                    } catch (err) {
+                        bat '''
+                            docker rm -f user-crud-deployed 2>NUL
+                            docker rename user-crud-previous user-crud-deployed 2>NUL
+                            docker start user-crud-deployed 2>NUL
+                        '''
+                        throw err
+                    }
                 }
             }
         }
@@ -108,6 +149,10 @@ pipeline {
 
         failure {
             echo 'PIPELINE FAILED - CHECK CONSOLE OUTPUT'
+        }
+
+        always {
+            echo 'Jenkins pipeline execution completed.'
         }
     }
 }
