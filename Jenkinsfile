@@ -50,6 +50,34 @@ pipeline {
                 bat 'docker images user-crud'
             }
         }
+        
+
+stage('Push to Docker Hub') {
+    steps {
+        withCredentials([
+            usernamePassword(
+                credentialsId: 'dockerhub-credentials',
+                usernameVariable: 'DOCKERHUB_USERNAME',
+                passwordVariable: 'DOCKERHUB_TOKEN'
+            )
+        ]) {
+            bat '''
+                @echo off
+                powershell -NoProfile -ExecutionPolicy Bypass -Command "$env:DOCKERHUB_TOKEN | docker login --username $env:DOCKERHUB_USERNAME --password-stdin"
+                if errorlevel 1 exit /b 1
+
+                docker tag user-crud:%BUILD_NUMBER% sandeshhm1521/user-crud:%BUILD_NUMBER%
+                if errorlevel 1 exit /b 1
+
+                docker push sandeshhm1521/user-crud:%BUILD_NUMBER%
+                if errorlevel 1 exit /b 1
+
+                docker logout
+            '''
+        }
+    }
+}
+
 
         stage('Deploy Candidate') {
             steps {
